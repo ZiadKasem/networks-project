@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+
+  <head>
+    <title>Blocked sites</title>
+  </head>
+  <body >
+        <h1 >This URL is blocked</h1>
+   
+  </body>
+</html>
