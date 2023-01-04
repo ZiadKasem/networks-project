@@ -1,16 +1,18 @@
 import socket
-
+import requests
 import sys
+import os
+
 if len(sys.argv) <= 1:
     print ('Usage : "python ProxyServer.py server_ip"\n[server_ip : It is the IP Address Of Proxy Server')
     #sys.exit(2)
 # Create a server socket, bind it to a port and start listening
 
-tcpSerSock = socket(AF_INET,SOCK_STREAM)
+tcpSerSock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 #server_address
-tcpSerSock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+tcpSerSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 tcpSerSock.bind(('localhost',8888))
-tcpSerSock.listen(5)
+tcpSerSock.listen(2)
 # Fill in start.
 # Fill in end.
 while 1:
@@ -21,15 +23,18 @@ while 1:
     message = tcpCliSock.recv(4096)
     print (message)
     # Extract the filename from the given message
-    print(message.split()[1])
-    #filename = message.split()[1].partition("/")[2]
 
-    file = message.decode().split()[1]
+    file = message.split()[1]
+    print("file")
     print(file)
     filename = file.split('/')[1]
+    print("filename")
     print (filename)
     fileExist = "false"
-    filetouse = "/" + filename
+    filetouse = file
+    print("file")
+    print(file)
+    print("filetouse")
     print(filetouse)
 #/////////////////////////////////////
     flag = -1
@@ -42,9 +47,9 @@ while 1:
     print( flag )
     Blockedfile = open("Blocked.txt")
     if flag == 0:
-        tcpCliSock.send("HTTP/1.0 403 Forbidden\r\n".encode())  # mod
-        tcpCliSock.send("Content-Type:text/html\r\n".encode())  # mod
-        tcpCliSock.send(Blockedfile.read().encode())
+        tcpCliSock.sendall("HTTP/1.0 403 Forbidden\r\n".encode())  # mod
+        tcpCliSock.sendall("Content-Type:text/html\r\n".encode())  # mod
+        tcpCliSock.sendall(Blockedfile.read().encode())
         continue
 
     Blockedfile.close()
@@ -55,9 +60,12 @@ while 1:
         outputdata = f.read() #was readlines-> in order to be not tuple
         fileExist = "true"
         # ProxyServer finds a cache hit and generates a response message
-        tcpCliSock.send("HTTP/1.0 200 OK\r\n".encode())  #mod
-        tcpCliSock.send("Content-Type:text/html\r\n".encode())  # mod
-        tcpCliSock.send(outputdata)
+        tcpCliSock.sendall("HTTP/1.0 200 OK\r\n".encode())  #mod
+        tcpCliSock.sendall("Content-Type:text/html\r\n".encode())  # mod
+        tcpCliSock.sendall("Content-Type: image/jpeg\r\n".encode())
+        tcpCliSock.sendall("Content-Type: image/jpeg\r\n".encode())
+
+        tcpCliSock.sendall(outputdata)
         f.close()
         print ('Read from cache')
         #return outputdata
@@ -65,17 +73,27 @@ while 1:
     except IOError:
         if fileExist == "false":
             # Create a socket on the proxyserver
-             c = socket(AF_INET, SOCK_STREAM)
-             hostn = filename.replace("www.","",1)
+             c = socket.socket(socket.AF_INET,socket. SOCK_STREAM)
+             file = file[1:]
+             hostn = file
+             hostn = file.replace("www.","",1)
              print(hostn)
              try:
                 fileobj = c.makefile('rwb',0)
                 # Connect to the socket to port 80
                 port=80
-                socket.gethostbyname(hostn) #expect error if not found
-                c.connect((hostn, 80))
-
-                fileobj.write(b'GET / HTTP/1.0\r\n\r\n') #sent to browser server
+                print("host name")
+                print(hostn)
+                if not "Referer" in message:
+                    print("connecting to the web server ...")
+                    c.connect((hostn, 80))
+                    conneted=hostn
+                    fileobj.write(b'GET / HTTP/1.0\r\n\r\n')  # sent to browser server
+                else:
+                    print("want to get the path in the referer: " + hostn)
+                    #fileobj.write(b'GET / HTTP/1.0\r\n\r\n')
+                    c.connect((conneted, 80))
+                    fileobj.write(b'GET /' + hostn + ' HTTP/1.0\r\n\r\n'.encode()) #sent to browser server
                 print("checkpoint1")
                 # check if it needs to be encoded
                 responseBuffer = fileobj.read()
@@ -83,30 +101,44 @@ while 1:
                 #responseBuffer = c.recv(2048)
                 print ("responseBuffer print")
                 print(responseBuffer)
-                print(8888)
+                print("responce buffer printed")
                 # Create a new file in the cache for the requested file.
                 # Also send the response in the buffer to client socket and the corresponding file in the cache
                 tmpFile = open("./" + filename,"wb")
                 for i in range(0, len(responseBuffer)):
                     tmpFile.write(responseBuffer[i])
-                print(222222)
-                tcpCliSock.send(responseBuffer)
+                print("responce buffer stored to file")
+                tcpCliSock.sendall("HTTP/1.0 200 OK\r\n".encode())  # mod
+                tcpCliSock.sendall("Content-Type:text/html\r\n".encode())  # mod
+                #tcpCliSock.sendall("Content-Type: image/jpeg\r\n".encode())
+                tcpCliSock.sendall("Content-Type: image/jpeg\r\n".encode())
+                tcpCliSock.sendall(responseBuffer)
+                print("responce buffer sent to client")
                 tmpFile.close()
                 # Fill in start.
                 # Fill in end.
+             #except requests.exceptions.ConnectionError:
+             except socket.gaierror:
+                 print("error 404")
+                 ERRORFile = open("Error.txt")
+                 tcpCliSock.sendall("HTTP/1.0 404 page not found\r\n".encode())  # mod
+                 tcpCliSock.sendall("Content-Type:text/html\r\n".encode())  # mod
+                 tcpCliSock.sendall(ERRORFile.read().encode())
+
              except Exception as e:
                  print ("Illegal request")
-                 print (e)
+                 print (e.args)
+
         else:
              print("error 404")
              ERRORFile = open("Error.txt")
-             tcpCliSock.send("HTTP/1.0 404 page not found\r\n".encode())  # mod
-             tcpCliSock.send("Content-Type:text/html\r\n".encode())  # mod
-             tcpCliSock.send(ERRORFile.read().encode())
+             tcpCliSock.sendall("HTTP/1.0 404 page not found\r\n".encode())  # mod
+             tcpCliSock.sendall("Content-Type:text/html\r\n".encode())  # mod
+             tcpCliSock.sendall(ERRORFile.read().encode())
 
 
         tcpCliSock.close()
  # Fill in start.
 tcpSerSock.flush()
 tcpSerSock.close()
- # Fill in end.
+ # Fill in end.-
