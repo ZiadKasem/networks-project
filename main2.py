@@ -9,7 +9,7 @@ if len(sys.argv) <= 1:
 # Create a server socket, bind it to a port and start listening
 
 tcpSerSock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-#server_address
+
 tcpSerSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 tcpSerSock.bind(('localhost',8888))
 tcpSerSock.listen(2)
@@ -21,26 +21,25 @@ while 1:
     tcpCliSock, addr = tcpSerSock.accept() #return address and tcp client socket
     print ('Received a connection from:', addr)
     message = tcpCliSock.recv(4096)
+
+    if message == "":
+        continue
+
     print (message)
     # Extract the filename from the given message
 
     file = message.split()[1]
-    print("file")
-    print(file)
+
     filename = file.split('/')[1]
-    print("filename")
-    print (filename)
+
     fileExist = "false"
     filetouse = file
-    print("file")
-    print(file)
-    print("filetouse")
-    print(filetouse)
+
 #/////////////////////////////////////
     flag = -1
     urlfile = open("URL_BLOCKED.txt")
     for i in urlfile:
-        if message == i:
+        if filename == i:
             flag = 0
             break
     urlfile.close()
@@ -77,13 +76,12 @@ while 1:
              file = file[1:]
              hostn = file
              hostn = file.replace("www.","",1)
-             print(hostn)
+
              try:
                 fileobj = c.makefile('rwb',0)
                 # Connect to the socket to port 80
                 port=80
-                print("host name")
-                print(hostn)
+
                 if not "Referer" in message:
                     print("connecting to the web server ...")
                     c.connect((hostn, 80))
@@ -91,33 +89,27 @@ while 1:
                     fileobj.write(b'GET / HTTP/1.0\r\n\r\n')  # sent to browser server
                 else:
                     print("want to get the path in the referer: " + hostn)
-                    #fileobj.write(b'GET / HTTP/1.0\r\n\r\n')
                     c.connect((conneted, 80))
                     fileobj.write(b'GET /' + hostn + ' HTTP/1.0\r\n\r\n'.encode()) #sent to browser server
-                print("checkpoint1")
+
                 # check if it needs to be encoded
                 responseBuffer = fileobj.read()
-
-                #responseBuffer = c.recv(2048)
-                print ("responseBuffer print")
-                print(responseBuffer)
-                print("responce buffer printed")
+                print("response buffer printed")
                 # Create a new file in the cache for the requested file.
                 # Also send the response in the buffer to client socket and the corresponding file in the cache
                 tmpFile = open("./" + filename,"wb")
                 for i in range(0, len(responseBuffer)):
                     tmpFile.write(responseBuffer[i])
-                print("responce buffer stored to file")
+                print("response buffer stored to file")
                 tcpCliSock.sendall("HTTP/1.0 200 OK\r\n".encode())  # mod
                 tcpCliSock.sendall("Content-Type:text/html\r\n".encode())  # mod
-                #tcpCliSock.sendall("Content-Type: image/jpeg\r\n".encode())
                 tcpCliSock.sendall("Content-Type: image/jpeg\r\n".encode())
                 tcpCliSock.sendall(responseBuffer)
+                print(responseBuffer)
                 print("responce buffer sent to client")
                 tmpFile.close()
                 # Fill in start.
                 # Fill in end.
-             #except requests.exceptions.ConnectionError:
              except socket.gaierror:
                  print("error 404")
                  ERRORFile = open("Error.txt")
